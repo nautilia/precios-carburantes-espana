@@ -2,7 +2,11 @@ name: Actualizar CSV carburantes
 
 on:
   schedule:
-    - cron: "0 12 * * *"   # 12:00 UTC cada día
+  # Invierno (UTC+1)
+  - cron: "0 7 * 11-12,1-3 *"
+
+  # Verano (UTC+2)
+  - cron: "0 6 * 4-10 *"
   workflow_dispatch:
 
 jobs:
