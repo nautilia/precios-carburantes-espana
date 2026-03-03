@@ -99,6 +99,29 @@ def guardar_csv(datos):
         writer.writeheader()
         writer.writerows(datos)
 
+
 if __name__ == "__main__":
     datos = generar_datos_4_meses()
+
+    # ===== VALIDACIONES =====
+
+    if len(datos) < 80:
+        raise Exception(f"ERROR: Muy pocos datos ({len(datos)} filas).")
+
+    ultima_fecha = max(d["fecha"] for d in datos)
+    ayer = (datetime.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+
+    if ultima_fecha < ayer:
+        raise Exception(f"ERROR: Última fecha incorrecta ({ultima_fecha})")
+
+    vacios_g95 = sum(1 for d in datos if d["gasolina_95_e5"] == "")
+    vacios_goa = sum(1 for d in datos if d["gasoleo_a"] == "")
+
+    if vacios_g95 > 5 or vacios_goa > 5:
+        raise Exception("ERROR: Demasiados valores vacíos en las series.")
+
+    print("Validación correcta. Generando CSV...")
+
     guardar_csv(datos)
+
+    print("CSV generado correctamente.")
