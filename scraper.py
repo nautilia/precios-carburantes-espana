@@ -114,8 +114,8 @@ if __name__ == "__main__":
     if ultima_fecha < ayer:
         raise Exception(f"ERROR: Última fecha incorrecta ({ultima_fecha})")
 
-    vacios_g95 = sum(1 for d in datos if d["gasolina_95_e5"] == "")
-    vacios_goa = sum(1 for d in datos if d["gasoleo_a"] == "")
+    vacios_g95 = sum(1 for d in datos if d["Gasolina 95 E5"] == "")
+    vacios_goa = sum(1 for d in datos if d["Gasóleo A"] == "")
 
     if vacios_g95 > 5 or vacios_goa > 5:
         raise Exception("ERROR: Demasiados valores vacíos en las series.")
