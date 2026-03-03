@@ -1,57 +1,66 @@
 import requests
+import re
 import csv
 from datetime import datetime, timedelta
-import io
 
-BASE_URL = "https://energia.serviciosmin.gob.es/shpCarburantes/"
+BASE_URL = "https://energia.serviciosmin.gob.es/shpCarburantes/vista/shp.aspx"
 
-def descargar_excel(session, producto, fecha_inicio, fecha_fin):
-    # Cargar página inicial
+def obtener_campos_ocultos(html):
+    campos = {}
+    for campo in ["__VIEWSTATE", "__EVENTVALIDATION", "__VIEWSTATEGENERATOR"]:
+        match = re.search(f'id="{campo}" value="([^"]+)"', html)
+        if match:
+            campos[campo] = match.group(1)
+    return campos
+
+def extraer_datos(html):
+    pattern = r"arrayToDataTable\(\[(.*?)\]\);"
+    match = re.search(pattern, html, re.S)
+    if not match:
+        return []
+
+    bloque = match.group(1)
+    filas = []
+
+    for linea in bloque.split("\n"):
+        if linea.strip().startswith(", ['"):
+            partes = re.findall(r"'([^']*)'|([\d.]+)", linea)
+            valores = [p[0] if p[0] else p[1] for p in partes]
+
+            fecha = datetime.strptime(valores[0], "%d/%m/%Y").strftime("%Y-%m-%d")
+
+            filas.append({
+                "fecha": fecha,
+                "precio": valores[1]
+            })
+
+    return filas
+
+def consultar_producto(session, producto, fecha_inicio, fecha_fin):
     r = session.get(BASE_URL)
-
-    viewstate = r.text.split('id="__VIEWSTATE" value="')[1].split('"')[0]
+    campos = obtener_campos_ocultos(r.text)
 
     payload = {
-        "__VIEWSTATE": viewstate,
+        **campos,
+        "ctl00$cph_Contenido$ddlTipoConsulta": "0",
         "ctl00$cph_Contenido$ddlTipoTemp": "0",
+        "ctl00$cph_Contenido$ddlTipo": "0",
         "ctl00$cph_Contenido$ddlCCAA": "99",
         "ctl00$cph_Contenido$ddlCarburante": producto,
         "ctl00$cph_Contenido$txtFechaInicial": fecha_inicio.strftime("%d/%m/%Y"),
         "ctl00$cph_Contenido$txtFechaFinal": fecha_fin.strftime("%d/%m/%Y"),
-        "__EVENTTARGET": "ctl00$cph_Contenido$BtnDownload",
-        "__EVENTARGUMENT": f"0|99|||||{producto}"
+        "ctl00$cph_Contenido$BtnAniadir": "Aceptar",
+        "__EVENTTARGET": "",
+        "__EVENTARGUMENT": ""
     }
 
     r2 = session.post(BASE_URL, data=payload)
 
-    return r2.content
-
-def parsear_excel_binario(binario):
-    # El Excel realmente es CSV en muchos casos
-    try:
-        texto = binario.decode("utf-8")
-    except:
-        texto = binario.decode("latin-1")
-
-    reader = csv.reader(io.StringIO(texto), delimiter=';')
-
-    datos = {}
-
-    for fila in reader:
-        if len(fila) < 3:
-            continue
-        try:
-            fecha = datetime.strptime(fila[0], "%d/%m/%Y").strftime("%Y-%m-%d")
-            precio = fila[2].replace(",", ".")
-            datos[fecha] = precio
-        except:
-            continue
-
-    return datos
+    return extraer_datos(r2.text)
 
 def generar_datos_4_meses():
     session = requests.Session()
-    hoy = datetime.today()
+    hoy = datetime.today() - timedelta(days=1)
 
     gasolina = {}
     gasoleo = {}
@@ -60,11 +69,14 @@ def generar_datos_4_meses():
         fin = hoy - timedelta(days=i*30)
         inicio = fin - timedelta(days=29)
 
-        bin_g95 = descargar_excel(session, "G95E5", inicio, fin)
-        bin_goa = descargar_excel(session, "GOA", inicio, fin)
+        datos_g95 = consultar_producto(session, "G95E5", inicio, fin)
+        datos_goa = consultar_producto(session, "GOA", inicio, fin)
 
-        gasolina.update(parsear_excel_binario(bin_g95))
-        gasoleo.update(parsear_excel_binario(bin_goa))
+        for d in datos_g95:
+            gasolina[d["fecha"]] = d["precio"]
+
+        for d in datos_goa:
+            gasoleo[d["fecha"]] = d["precio"]
 
     fechas = sorted(set(gasolina.keys()) | set(gasoleo.keys()))
 
