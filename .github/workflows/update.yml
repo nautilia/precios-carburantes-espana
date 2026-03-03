@@ -1,0 +1,33 @@
+name: Actualizar CSV carburantes
+
+on:
+  schedule:
+    - cron: "0 12 * * *"   # 12:00 UTC cada día
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v3
+
+      - name: Instalar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: pip install requests
+
+      - name: Ejecutar scraper
+        run: python scraper.py
+
+      - name: Commit CSV actualizado
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add gasolina.csv
+          git commit -m "Actualización diaria CSV" || echo "Sin cambios"
+          git push
