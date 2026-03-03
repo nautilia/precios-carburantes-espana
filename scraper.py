@@ -84,8 +84,8 @@ def generar_datos_4_meses():
     for f in fechas:
         filas.append({
             "fecha": f,
-            "gasolina_95_e5": gasolina.get(f, ""),
-            "gasoleo_a": gasoleo.get(f, "")
+            "Gasolina 95 E5": gasolina.get(f, ""),
+            "Gasóleo A": gasoleo.get(f, "")
         })
 
     return filas
@@ -94,7 +94,7 @@ def guardar_csv(datos):
     with open("gasolina.csv", "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(
             f,
-            fieldnames=["fecha", "gasolina_95_e5", "gasoleo_a"]
+            fieldnames=["fecha", "Gasolina 95 E5", "Gasóleo A"]
         )
         writer.writeheader()
         writer.writerows(datos)
